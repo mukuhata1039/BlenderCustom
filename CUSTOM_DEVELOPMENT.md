@@ -141,3 +141,6 @@
 - ユーザー実行コマンド: `git -C "D:\Blender\BlenderCustom" pull --ff-only origin main`、次に `powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Blender\BlenderCustom\custom_tools\install_design_doll_animation_export.ps1"`。
 - 実行後はBlenderCustomの編集→プリファレンス→アドオンで `DesignDoll Animation PNG Export` を有効化。アドオン機能は3DビューNパネルの `アニメ出力`。
 - Pythonアドオンのコピーだけなので、この導入には本体再コンパイルは不要。通常版Blenderとは独立だが、Blenderのユーザー設定フォルダはバージョンで共有されうるためインストーラーはユーザー設定を自動変更しない。
+
+- 2026-10-28 アドオン導入用の初回スクリプトは `--python-expr` をWindows PowerShell 5.1から渡した際に引用符が崩れ、Blender Pythonが `File "<string>", line 1` の構文エラー。アドオンのコピー前に停止。PowerShell 5.1のstderrが `NativeCommandError` になる点も判明。
+- `custom_tools/install_design_doll_animation_export.ps1` を、UTF-8の一時 `.py` ファイルと `Start-Process` での標準出力/標準エラー別取得に修正（commit `af2e6ce95503936e05f28384c5d2dc7ac1546994`）。アドオン本体のコードは変更なし。再度Pullしてインストーラーを再実行する。実機成功は未確認。
