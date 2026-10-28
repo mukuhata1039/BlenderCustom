@@ -130,3 +130,14 @@
 - **旧パス `D:\BlenderCustom` 及び `D:\build_windows_x64_vc17_Release` は現在存在しない**。以降、操作案内では使わない。
 
 - 2026-10-28 ユーザーが移動後の `D:\Blender\Build\bin\Release\blender.exe` の正常起動を確認。これによりフォルダ整理と起動確認は完了。次工程はDesignDoll用アドオン等の独自機能の取り込み（まだ未実装）。
+
+## DesignDoll Animation PNG Export アドオン取り込み（2026-10-28）
+- ChatGPT過去生成ファイル `design_doll_animation_export.py`（417行、`bl_info` version 1.0.0）をファイルライブラリから回収し、Python構文検査済み。
+- アドオンを `scripts/addons_core/design_doll_animation_export.py` に追加。通常版Blenderを変更しない。
+- 旧プロジェクト名を含むデフォルト出力絶対パスだけ `//render_png`（.blendからの相対パス）に変更。その他の処理は元コードのまま。
+- リビルドせず現行の `D:\Blender\Build\bin\Release\blender.exe` に取り込むため `custom_tools/install_design_doll_animation_export.ps1` を追加。
+- スクリプトはこの改造版Blenderに `bpy.utils.script_paths(subdir='addons_core')` を問い合わせ、D:\Blender\Build 内にあるランタイムのaddons_coreへファイルをコピー。SHA256照合後、BlenderCustomのバックグラウンド起動でaddon_utils.enableによる一時的な登録を検証する。
+- **ユーザーPCでのインストール成功・動作確認はまだ未確認**。実行結果 `ADDON INSTALL SUCCESS` の確認待ち。
+- ユーザー実行コマンド: `git -C "D:\Blender\BlenderCustom" pull --ff-only origin main`、次に `powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Blender\BlenderCustom\custom_tools\install_design_doll_animation_export.ps1"`。
+- 実行後はBlenderCustomの編集→プリファレンス→アドオンで `DesignDoll Animation PNG Export` を有効化。アドオン機能は3DビューNパネルの `アニメ出力`。
+- Pythonアドオンのコピーだけなので、この導入には本体再コンパイルは不要。通常版Blenderとは独立だが、Blenderのユーザー設定フォルダはバージョンで共有されうるためインストーラーはユーザー設定を自動変更しない。
