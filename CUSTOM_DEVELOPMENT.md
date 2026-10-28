@@ -98,3 +98,9 @@
 - キャッシュの `CMAKE_HOME_DIRECTORY` が `D:\BlenderCustom` でない場合は削除せずエラー停止する安全対策。
 - 取得済み依存ライブラリ、本体ソース、通常版Blenderの設定は変更しない。
 - ユーザーが GitHub から Pull 後に `build_blender.ps1` を再実行して確認する。
+
+## 初回ビルド・起動成功（2026-10-28）
+- ユーザーが `D:\BlenderCustom\custom_tools\build_blender.ps1` 実行後、`BUILD SUCCESS` と `D:\build_windows_x64_vc17_Release\bin\Release\blender.exe` を確認した。
+- ユーザーが上記 `blender.exe` を起動し、起動成功を報告した。
+- 現時点ではBlender本体は初回ビルド・起動確認済みで、DesignDoll Animation Exporterなどの独自アドオンはまだBlenderCustomに統合していない。
+- フォルダ整理希望あり：`D:\Blender\BlenderCustom` と `D:\Blender\Build` 等にまとめたい。ただし元の `D:\BlenderCustom` と `D:\build_windows_x64_vc17_Release` を単純移動するとCMakeの絶対パスが壊れるため、作業前に安全な移行方法を選ぶ。ユーザーの許可なくフォルダ移動しない。
