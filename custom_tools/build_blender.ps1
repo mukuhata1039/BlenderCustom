@@ -95,6 +95,55 @@ if ($LibrariesOnly) {
     exit 0
 }
 
+# A failed first CMake configure keeps the old detected compiler version in
+# CMakeFiles/<version>/CMakeCXXCompiler.cmake. After an MSVC update, re-running
+# make.bat reuses it and incorrectly rejects the newer compiler.
+# Regenerate ONLY CMake configuration state, never libraries or source code.
+$cmakeCache = Join-Path $buildPath "CMakeCache.txt"
+$cmakeFiles = Join-Path $buildPath "CMakeFiles"
+$solutionFile = Join-Path $buildPath "Blender.sln"
+if (Test-Path -LiteralPath $cmakeCache) {
+    $homeLine = Get-Content -LiteralPath $cmakeCache |
+        Where-Object { $_ -match '^CMAKE_HOME_DIRECTORY:INTERNAL=' } |
+        Select-Object -First 1
+    if (-not $homeLine) {
+        throw "Build folder contains a CMake cache without a source identifier. Refusing to modify it: $buildPath"
+    }
+    $cachedSource = (($homeLine -split '=', 2)[1] -replace '\\', '/').TrimEnd('/')
+    $expectedSource = ($root -replace '\\', '/').TrimEnd('/')
+    if ($cachedSource -ine $expectedSource) {
+        throw ("Unexpected CMake cache source: " + $cachedSource + ". Refusing to modify: " + $buildPath)
+    }
+
+    $reconfigure = -not (Test-Path -LiteralPath $solutionFile)
+    if (Test-Path -LiteralPath $cmakeFiles) {
+        $compilerInfo = Get-ChildItem -LiteralPath $cmakeFiles -Recurse -File -Filter "CMakeCXXCompiler.cmake" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($compilerInfo) {
+            $compilerLine = Get-Content -LiteralPath $compilerInfo.FullName |
+                Where-Object { $_ -match '^set\(CMAKE_CXX_COMPILER_VERSION "' } |
+                Select-Object -First 1
+            if ($compilerLine -match '^set\(CMAKE_CXX_COMPILER_VERSION "([^"]+)"\)') {
+                $cachedCompiler = $Matches[1]
+                Write-Host ("CMake cached MSVC version: " + $cachedCompiler)
+                if ([version]$cachedCompiler -lt [version]"19.44.35216") {
+                    $reconfigure = $true
+                }
+            }
+        }
+    }
+
+    if ($reconfigure) {
+        Write-Host "Regenerating stale/incomplete CMake configuration after Visual Studio update..."
+        # CMakeCache.txt and CMakeFiles are generated configuration files.
+        # No .blend files, source code, LFS data or installed Blender are touched.
+        Remove-Item -LiteralPath $cmakeCache -Force
+        if (Test-Path -LiteralPath $cmakeFiles) {
+            Remove-Item -LiteralPath $cmakeFiles -Recurse -Force
+        }
+    }
+}
+
 Write-Host "=== Building BlenderCustom (Release / x64 / VS2022 Build Tools) ==="
 Write-Host "This does not overwrite your installed Blender."
 Push-Location $root
