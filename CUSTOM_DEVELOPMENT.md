@@ -144,3 +144,9 @@
 
 - 2026-10-28 アドオン導入用の初回スクリプトは `--python-expr` をWindows PowerShell 5.1から渡した際に引用符が崩れ、Blender Pythonが `File "<string>", line 1` の構文エラー。アドオンのコピー前に停止。PowerShell 5.1のstderrが `NativeCommandError` になる点も判明。
 - `custom_tools/install_design_doll_animation_export.ps1` を、UTF-8の一時 `.py` ファイルと `Start-Process` での標準出力/標準エラー別取得に修正（commit `af2e6ce95503936e05f28384c5d2dc7ac1546994`）。アドオン本体のコードは変更なし。再度Pullしてインストーラーを再実行する。実機成功は未確認。
+
+## 2026-10-28 アドオン導入成功（ユーザー実機ログ）
+- ユーザーのPowerShellログで `ADDON INSTALL SUCCESS` を確認。
+- コピー先: `D:\Blender\Build\bin\Release\5.4\scripts\addons_core\design_doll_animation_export.py`。
+- スクリプトは BlenderCustom 5.4 の `addon_utils.enable` による非永続的な登録テストまで成功。再ビルド不要。通常版Blender未変更。
+- **次の確認**: BlenderCustom GUI の「編集 → プリファレンス → アドオン」で `DesignDoll Animation PNG Export` を有効化し、3DビューのNパネル「アニメ出力」が表示されるか確認。GUIでの有効化・実操作の成功はまだ未確認。
