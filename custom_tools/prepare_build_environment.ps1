@@ -11,9 +11,14 @@ if (-not (Test-Path $vswhere)) { throw "Visual Studio installer (vswhere.exe) no
 $vsArgs = @("-latest", "-products", "*", "-version", "[17.0,18.0)")
 $vsPath = (& $vswhere @vsArgs -property installationPath | Select-Object -First 1)
 $vsVersion = (& $vswhere @vsArgs -property installationVersion | Select-Object -First 1)
+$vsInstances = & $vswhere @vsArgs -format json -utf8 | ConvertFrom-Json
+$vsDisplayVersion = @($vsInstances)[0].catalog.productDisplayVersion
 if (-not $vsPath) { throw "Visual Studio 2022 not found." }
 Write-Host ("Visual Studio 2022: " + $vsPath)
-Write-Host ("Visual Studio version: " + $vsVersion)
+Write-Host ("Visual Studio installation version: " + $vsVersion)
+Write-Host ("Visual Studio PRODUCT version: " + $vsDisplayVersion)
+Write-Host "Blender requires VS2022 product version >= 17.14.14 (MSVC compiler >= 19.44.35216)."
+# Installation version is NOT the product version; the old check used the wrong one.
 
 $vcPath = (& $vswhere @vsArgs -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1)
 $vcInstalled = (-not [string]::IsNullOrWhiteSpace($vcPath)) -and (Test-Path (Join-Path $vsPath "VC\Tools\MSVC"))
@@ -59,14 +64,18 @@ Write-Host ("CMake: " + $cmakeExe)
 & $cmakeExe --version | Select-Object -First 1
 
 $ready = $vcInstalled -and $sdkInstalled
-if ($vsVersion) {
+if (-not $vsDisplayVersion) {
+    $ready = $false
+    Write-Warning "Unable to determine Visual Studio product version; do not assume build readiness."
+} else {
     try {
-        if ([version]$vsVersion -lt [version]"17.14.14") {
+        if ([version]$vsDisplayVersion -lt [version]"17.14.14") {
             $ready = $false
-            Write-Warning "Visual Studio 2022 is below Blender's documented minimum 17.14.14. Update it."
+            Write-Warning ("Visual Studio product version " + $vsDisplayVersion + " is too old. Update VS2022 Build Tools to 17.14.14 or newer.")
         }
     } catch {
-        Write-Warning "Could not parse Visual Studio version. Please verify it."
+        $ready = $false
+        Write-Warning ("Could not parse Visual Studio PRODUCT version: " + $vsDisplayVersion)
     }
 }
 
