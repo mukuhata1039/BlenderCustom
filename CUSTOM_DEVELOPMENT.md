@@ -90,3 +90,11 @@
 - `update_vs2022.ps1`、`prepare_build_environment.ps1`、`build_blender.ps1` は、ローカライズを含まない `vswhere -property installationName` のバージョンを取り出す方式に修正済み。
 - **再更新は不要**。ユーザーは `git -C "D:\BlenderCustom" pull --ff-only origin main` してから `build_blender.ps1` を実行する。7GBのライブラリは既に取得済み。
 - Blender実機ビルドの成功は、修正後のユーザー実行結果を確認するまでは未検証。
+
+## VS2022 更新後も MSVC エラー継続（2026-10-28）
+- VS 2022 製品バージョン `17.14.43` が確認されたのに、CMake 再実行が「MSVC 17.14.14 以上が必要」のまま停止。
+- 2度目のログには `The CXX compiler identification` が出ず、CMake に更新前のコンパイラ情報がキャッシュされている可能性が高い。
+- `custom_tools/build_blender.ps1` で、初回の設定失敗で `Blender.sln` がない場合、または CMake が `19.44.35216` 未満のコンパイラを記録している場合に限り、当該Blenderビルドフォルダの `CMakeCache.txt` と `CMakeFiles` を削除して自動再検出するよう修正。
+- キャッシュの `CMAKE_HOME_DIRECTORY` が `D:\BlenderCustom` でない場合は削除せずエラー停止する安全対策。
+- 取得済み依存ライブラリ、本体ソース、通常版Blenderの設定は変更しない。
+- ユーザーが GitHub から Pull 後に `build_blender.ps1` を再実行して確認する。
