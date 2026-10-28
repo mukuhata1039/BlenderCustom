@@ -74,3 +74,12 @@
 - 本体のLFSは公式upstreamから取得し、既存ソースコードの編集・削除はしない。
 - ビルド先は通常 `D:\build_windows_x64_vc17_Release\bin\Release\blender.exe`。現在の通常版Blenderは上書きしない。
 - スクリプトをGitHubに追加しただけではビルド成功は未確認。ユーザーの実行結果を受けて対処する。
+
+## 初回ビルド時の Visual Studio 2022 バージョン問題（2026-10-28）
+- Windows の依存ライブラリ LFS（約7GB）の取得は正常完了。
+- 最初の CMake 実行で `CMAKE_CXX_COMPILER_VERSION=19.44.35214` を検出し、Blender 要件 `19.44.35216`（VS2022 17.14.14）未満で停止した。
+- Visual Studio Developer Command Prompt は `17.14.12`。一方 `vswhere -property installationVersion` は `17.14.36408.4` であり、この番号を `17.14.14` と比較した従来の環境判定は誤り。
+- `prepare_build_environment.ps1` と `build_blender.ps1` は、`vswhere -format json` の `catalog.productDisplayVersion` を比較するよう修正済み。
+- Microsoft公式の Visual Studio Installer 更新手順を `custom_tools/update_vs2022.ps1` に実装。管理者許可が必要。
+- 更新後は `custom_tools/build_blender.ps1` を再実行する。取得済みLFSライブラリはローカルに残り、全件ダウンロードし直す必要はない。
+- 禁止：Blender 側の最低バージョンチェックを削除してビルドを通すこと。適切なコンパイラ更新を優先。
