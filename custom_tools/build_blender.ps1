@@ -5,6 +5,17 @@ param([switch]$LibrariesOnly)
 $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+# After folder organization, the physical source is in D:\Blender\BlenderCustom,
+# but CMake/Visual Studio generation remembers D:\BlenderCustom. Always build
+# through that backward-compatible junction to preserve incremental builds.
+if ($root.TrimEnd('\') -ieq 'D:\Blender\BlenderCustom') {
+    $oldPath = 'D:\BlenderCustom'
+    $alias = Get-Item -LiteralPath $oldPath -Force -ErrorAction SilentlyContinue
+    if (-not $alias -or $alias.LinkType -ne 'Junction' -or @($alias.Target)[0].TrimEnd('\') -ine $root.TrimEnd('\')) {
+        throw "Expected compatibility junction D:\BlenderCustom -> D:\Blender\BlenderCustom. Run custom_tools\organize_folders.ps1 (or restore the junction) before building."
+    }
+    $root = $oldPath
+}
 $libPath = Join-Path $root "lib\windows_x64"
 $buildPath = Join-Path (Split-Path $root -Parent) "build_windows_x64_vc17_Release"
 
