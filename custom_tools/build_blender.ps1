@@ -24,8 +24,12 @@ $vsPath = (& $vswhere -latest -products * -version "[17.0,18.0)" -requires "Micr
 if (-not $vsPath) { throw "Visual Studio 2022 with MSVC C++ tools was not found." }
 # Verify the actual VS product patch version before any multi-gigabyte downloads.
 # vswhere installationVersion (e.g. 17.14.36408.4) is NOT the patch-level product version.
-$vsJson = & $vswhere -latest -products * -version "[17.0,18.0)" -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" -format json -utf8 | ConvertFrom-Json
-$productVersion = @($vsJson)[0].catalog.productDisplayVersion
+# Avoid -format json | ConvertFrom-Json: Windows PowerShell 5.1 may corrupt localized output.
+$installationName = (& $vswhere -latest -products * -version "[17.0,18.0)" -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" -property installationName | Select-Object -First 1)
+if ($installationName -notmatch "^VisualStudio/(?<ver>\d+\.\d+\.\d+)\+") {
+    throw ("Unrecognized Visual Studio installation name: " + $installationName)
+}
+$productVersion = $Matches["ver"]
 if (-not $productVersion) { throw "Could not determine Visual Studio product version. Build not started." }
 try { $parsedProductVersion = [version]$productVersion } catch { throw ("Unrecognized Visual Studio product version: " + $productVersion) }
 Write-Host ("Visual Studio product version: " + $productVersion)
