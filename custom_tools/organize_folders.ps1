@@ -83,11 +83,11 @@ Require-File $buildToValidate "CMakeCache.txt"
 
 # Make sure that this build belongs to this exact fork and not another project.
 $cacheFile = Join-Path $buildToValidate "CMakeCache.txt"
-$home = Get-Content -LiteralPath $cacheFile |
+$cmakeHomeLine = Get-Content -LiteralPath $cacheFile |
     Where-Object { $_ -match '^CMAKE_HOME_DIRECTORY:INTERNAL=' } |
     Select-Object -First 1
-if (-not $home) { throw "CMake cache has no source identification. Nothing moved." }
-$cachedSource = (($home -split '=',2)[1] -replace '\\','/').TrimEnd('/')
+if (-not $cmakeHomeLine) { throw "CMake cache has no source identification. Nothing moved." }
+$cachedSource = (($cmakeHomeLine -split '=',2)[1] -replace '\\','/').TrimEnd('/')
 $expectedSources = @($oldSource,$newSource) | ForEach-Object { ($_ -replace '\\','/').TrimEnd('/') }
 if ($cachedSource -notin $expectedSources) {
     throw ("CMake build belongs to another source: " + $cachedSource)
