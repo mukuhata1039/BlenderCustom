@@ -5,20 +5,13 @@ param([switch]$LibrariesOnly)
 $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-# After folder organization, the physical source is in D:\Blender\BlenderCustom,
-# but CMake/Visual Studio generation remembers D:\BlenderCustom. Always build
-# through that backward-compatible junction to preserve incremental builds.
-if ($root.TrimEnd('\') -ieq 'D:\Blender\BlenderCustom') {
-    $oldPath = 'D:\BlenderCustom'
-    $alias = Get-Item -LiteralPath $oldPath -Force -ErrorAction SilentlyContinue
-    if (-not $alias -or $alias.LinkType -ne 'Junction' -or @($alias.Target)[0].TrimEnd('\') -ine $root.TrimEnd('\')) {
-        throw "Expected compatibility junction D:\BlenderCustom -> D:\Blender\BlenderCustom. Run custom_tools\organize_folders.ps1 (or restore the junction) before building."
-    }
-    $root = $oldPath
-}
+$organized = $root.TrimEnd('\') -ieq 'D:\Blender\BlenderCustom'
 $libPath = Join-Path $root "lib\windows_x64"
-$buildPath = Join-Path (Split-Path $root -Parent) "build_windows_x64_vc17_Release"
-
+if ($organized) {
+    $buildPath = "D:\Blender\Build"
+} else {
+    $buildPath = Join-Path (Split-Path $root -Parent) "build_windows_x64_vc17_Release"
+}
 function Assert-NativeSuccess([string]$step) {
     if ($LASTEXITCODE -ne 0) {
         throw ("FAILED at " + $step + " (exit code: " + $LASTEXITCODE + "). Running this script again is safe.")
@@ -159,7 +152,12 @@ Write-Host "=== Building BlenderCustom (Release / x64 / VS2022 Build Tools) ==="
 Write-Host "This does not overwrite your installed Blender."
 Push-Location $root
 try {
-    & cmd.exe /d /c "call make.bat 2022b"
+    if ($organized) {
+        # Build inside the new folder instead of recreating a D:\ build directory.
+        & cmd.exe /d /c 'call make.bat 2022b builddir "D:\Blender\Build"'
+    } else {
+        & cmd.exe /d /c "call make.bat 2022b"
+    }
     Assert-NativeSuccess "Blender compilation and install target"
 }
 finally {
