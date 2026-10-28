@@ -128,3 +128,5 @@
 - 次回のソース更新は `git -C "D:\Blender\BlenderCustom" pull --ff-only origin main`。
 - 次回ビルドは `powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Blender\BlenderCustom\custom_tools\build_blender.ps1"`。CMakeキャッシュ削除済みなので再設定と再コンパイルが発生する可能性あり。
 - **旧パス `D:\BlenderCustom` 及び `D:\build_windows_x64_vc17_Release` は現在存在しない**。以降、操作案内では使わない。
+
+- 2026-10-28 ユーザーが移動後の `D:\Blender\Build\bin\Release\blender.exe` の正常起動を確認。これによりフォルダ整理と起動確認は完了。次工程はDesignDoll用アドオン等の独自機能の取り込み（まだ未実装）。
