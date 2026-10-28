@@ -83,3 +83,10 @@
 - Microsoft公式の Visual Studio Installer 更新手順を `custom_tools/update_vs2022.ps1` に実装。管理者許可が必要。
 - 更新後は `custom_tools/build_blender.ps1` を再実行する。取得済みLFSライブラリはローカルに残り、全件ダウンロードし直す必要はない。
 - 禁止：Blender 側の最低バージョンチェックを削除してビルドを通すこと。適切なコンパイラ更新を優先。
+
+## VS2022 更新済み・PowerShellのJSONエラー修正（2026-10-28）
+- ユーザーログでは、Visual Studio Build Tools 2022 は `17.14.12` から `17.14.43` に更新済み（`installationName: VisualStudio/17.14.43+37824.6`）。
+- `update_vs2022.ps1` の更新後確認で、Windows PowerShell 5.1が日本語を含む `vswhere -format json -utf8` 出力をパイプ処理中に文字化けさせ、`ConvertFrom-Json` が失敗した。更新失敗ではない。
+- `update_vs2022.ps1`、`prepare_build_environment.ps1`、`build_blender.ps1` は、ローカライズを含まない `vswhere -property installationName` のバージョンを取り出す方式に修正済み。
+- **再更新は不要**。ユーザーは `git -C "D:\BlenderCustom" pull --ff-only origin main` してから `build_blender.ps1` を実行する。7GBのライブラリは既に取得済み。
+- Blender実機ビルドの成功は、修正後のユーザー実行結果を確認するまでは未検証。
