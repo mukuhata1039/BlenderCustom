@@ -1,168 +1,132 @@
-# Organize an already built BlenderCustom checkout without invalidating CMake paths.
-# Windows PowerShell 5.1 / NTFS / D: only.
-#
-# BEFORE RUNNING: close custom Blender, Visual Studio, build shells and Explorer
-# windows whose current directory is inside the old folders.
-#
-# Physical directories after migration:
-#   D:\Blender\BlenderCustom   <- source + Git
-#   D:\Blender\Build           <- existing compiled build
-#
-# Backward-compatible NTFS junctions retained for CMake/Visual Studio:
-#   D:\BlenderCustom -> D:\Blender\BlenderCustom
-#   D:\build_windows_x64_vc17_Release -> D:\Blender\Build
-#
-# This script does NOT delete any source files, build files or library downloads.
+# Move BlenderCustom and its build into D:\Blender without leaving junctions.
+# Run only AFTER closing BlenderCustom and build/compiler processes.
+# This is a same-volume move: it does not download libraries or discard compiled output.
+# The existing CMake configuration must be regenerated after paths change.
+# PowerShell 5.1, NTFS.
 $ErrorActionPreference = "Stop"
 
-$parent = "D:\Blender"
 $oldSource = "D:\BlenderCustom"
-$newSource = "D:\Blender\BlenderCustom"
 $oldBuild = "D:\build_windows_x64_vc17_Release"
+$parent = "D:\Blender"
+$newSource = "D:\Blender\BlenderCustom"
 $newBuild = "D:\Blender\Build"
 
-function Get-Entry([string]$path) {
+function Entry([string]$path) {
     Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
 }
-function Assert-DirectoryHas([string]$path, [string]$relative) {
-    if (-not (Test-Path -LiteralPath (Join-Path $path $relative))) {
-        throw ("Missing " + $relative + " in " + $path + ". Nothing will be overwritten.")
+function Require-File([string]$dir, [string]$relative) {
+    if (-not (Test-Path -LiteralPath (Join-Path $dir $relative))) {
+        throw ("Required file missing: " + (Join-Path $dir $relative))
     }
 }
-function Assert-ExpectedJunction([string]$old, [string]$new) {
-    $entry = Get-Entry $old
-    if (-not $entry -or $entry.LinkType -ne "Junction") {
-        throw ("Expected an NTFS junction at: " + $old)
+function Check-MigrationPair([string]$old, [string]$new, [string]$required) {
+    $o = Entry $old
+    $n = Entry $new
+    if ($o -and ($o.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw ("A link already exists at " + $old + ". Stop; do not delete links manually.")
     }
-    $target = @($entry.Target)[0]
-    if ([string]::IsNullOrWhiteSpace($target)) {
-        throw ("Cannot read junction target: " + $old)
+    if ($n -and ($n.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw ("Unexpected target link: " + $new)
     }
-    if ($target.TrimEnd('\') -ine $new.TrimEnd('\')) {
-        throw ("Unexpected junction target for " + $old + ": " + $target)
-    }
-    if (-not (Test-Path -LiteralPath $old -PathType Container)) {
-        throw ("Junction target is not accessible: " + $old)
-    }
+    if ($o -and $n) { throw ("Both paths already exist; refusing to merge: " + $old + " and " + $new) }
+    if (-not $o -and -not $n) { throw ("Neither path exists: " + $old + " or " + $new) }
+    $existing = if ($o) { $old } else { $new }
+    Require-File $existing $required
 }
-function Move-And-Link([string]$old, [string]$new, [string]$required) {
-    $oldEntry = Get-Entry $old
-    $newEntry = Get-Entry $new
-
-    if ($oldEntry -and $oldEntry.LinkType -eq "Junction") {
-        Assert-ExpectedJunction $old $new
-        Assert-DirectoryHas $new $required
-        Write-Host ("Already organized: " + $new)
-        return
-    }
-
-    if ($oldEntry -and ($oldEntry.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-        throw ("Refusing to move unexpected reparse point: " + $old)
-    }
-
-    if ($oldEntry -and $newEntry) {
-        throw ("Both source and target exist. Refusing to merge or overwrite: " + $old + " and " + $new)
-    }
-
-    if (-not $oldEntry -and -not $newEntry) {
-        throw ("Neither the old nor the new directory exists: " + $old)
-    }
-
-    if ($oldEntry) {
-        Assert-DirectoryHas $old $required
+function Move-If-Needed([string]$old, [string]$new) {
+    if (Entry $old) {
         Write-Host ("Moving " + $old + " -> " + $new)
-        # Same NTFS volume: Windows moves the existing directory, not its contents
-        # through a new download or re-compilation.
         Move-Item -LiteralPath $old -Destination $new -ErrorAction Stop
     } else {
-        # Recover safely if the previous attempt moved the folder but was
-        # interrupted before the junction was created.
-        Assert-DirectoryHas $new $required
-        Write-Host ("Resuming migration: destination already exists at " + $new)
-    }
-
-    try {
-        Write-Host ("Creating compatibility junction: " + $old + " -> " + $new)
-        New-Item -ItemType Junction -Path $old -Target $new -ErrorAction Stop | Out-Null
-        Assert-ExpectedJunction $old $new
-    } catch {
-        Write-Warning ("Could not create junction for " + $old + ". The files are preserved in " + $new)
-        throw
+        Write-Host ("Already moved: " + $new)
     }
 }
 
-Write-Host "=== BlenderCustom folder organization ==="
-Write-Host "WARNING: close BlenderCustom and any active build process before continuing."
+Write-Host "=== BlenderCustom clean folder organization ==="
+Write-Host "Final locations:"
+Write-Host ("  " + $newSource)
+Write-Host ("  " + $newBuild)
+Write-Host "No junctions or old-path folders will be created."
 
-$driveFormat = ([System.IO.DriveInfo]::new("D:\")).DriveFormat
-if ($driveFormat -ne "NTFS") { throw ("D: must use NTFS for this migration. Detected: " + $driveFormat) }
-if ((Get-Location).Path -like "D:\BlenderCustom*" -or (Get-Location).Path -like "D:\build_windows_x64_vc17_Release*") {
-    throw "Current PowerShell directory is inside a folder being moved. Open PowerShell from another directory."
+if (([System.IO.DriveInfo]::new("D:\")).DriveFormat -ne "NTFS") {
+    throw "D: must be NTFS."
+}
+$current = (Get-Location).Path
+foreach ($p in @($oldSource,$oldBuild,$newSource,$newBuild)) {
+    if ($current -ieq $p -or $current.StartsWith($p.TrimEnd("\") + "\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw ("PowerShell's current directory is in a folder being moved: " + $current + ". Run from C:\Windows\system32.")
+    }
 }
 
-# Do not move directories while a custom Blender or an active compiler is running.
-$running = @(Get-CimInstance Win32_Process -Filter "Name = 'blender.exe' OR Name = 'MSBuild.exe' OR Name = 'cmake.exe' OR Name = 'cl.exe' OR Name = 'link.exe'" -ErrorAction Stop)
+# Do not relocate folders while BlenderCustom or a compiler is accessing them.
+$running = @(Get-CimInstance Win32_Process -Filter "Name = 'blender.exe' OR Name = 'MSBuild.exe' OR Name = 'cmake.exe' OR Name = 'cl.exe' OR Name = 'link.exe'")
 foreach ($proc in $running) {
     $exe = [string]$proc.ExecutablePath
     $cmd = [string]$proc.CommandLine
-    $customExe = (($exe -like "$oldBuild\*") -or ($exe -like "$newBuild\*"))
-    $activeBuild = ($proc.Name -ne "blender.exe" -and (($cmd -like "*D:\BlenderCustom*") -or ($cmd -like "*D:\build_windows_x64_vc17_Release*") -or ($cmd -like "*D:\Blender\Build*")))
-    if ($customExe -or $activeBuild) {
-        throw ("Close this program before moving build files: " + $proc.Name + " (PID " + $proc.ProcessId + ")")
+    $usesCustomBlender = (($proc.Name -ieq "blender.exe") -and
+        ($exe.StartsWith($oldBuild + "\", [StringComparison]::OrdinalIgnoreCase) -or
+         $exe.StartsWith($newBuild + "\", [StringComparison]::OrdinalIgnoreCase)))
+    $usesCustomBuild = ($proc.Name -ine "blender.exe" -and (
+        $cmd.Contains($oldSource) -or $cmd.Contains($oldBuild) -or
+        $cmd.Contains($newSource) -or $cmd.Contains($newBuild)))
+    if ($usesCustomBlender -or $usesCustomBuild) {
+        throw ("Close " + $proc.Name + " (PID " + $proc.ProcessId + ") before migration.")
     }
 }
 
-$oldSourceEntry = Get-Entry $oldSource
-$newSourceEntry = Get-Entry $newSource
-$oldBuildEntry = Get-Entry $oldBuild
-$newBuildEntry = Get-Entry $newBuild
-if ($oldSourceEntry -and $newSourceEntry -and $oldSourceEntry.LinkType -ne "Junction") {
-    throw "The new source folder already exists, refusing to overwrite anything."
-}
-if ($oldBuildEntry -and $newBuildEntry -and $oldBuildEntry.LinkType -ne "Junction") {
-    throw "The new build folder already exists, refusing to overwrite anything."
-}
-if (-not $oldSourceEntry -and -not $newSourceEntry) { throw "Source folder not found." }
-if (-not $oldBuildEntry -and -not $newBuildEntry) { throw "Build folder not found." }
+Check-MigrationPair $oldSource $newSource "make.bat"
+Check-MigrationPair $oldBuild $newBuild "bin\Release\blender.exe"
+$srcToValidate = if (Entry $oldSource) { $oldSource } else { $newSource }
+Require-File $srcToValidate ".git"
+$buildToValidate = if (Entry $oldBuild) { $oldBuild } else { $newBuild }
+Require-File $buildToValidate "CMakeCache.txt"
 
-$sourceToCheck = if ($oldSourceEntry -and $oldSourceEntry.LinkType -ne "Junction") { $oldSource } else { $newSource }
-$buildToCheck = if ($oldBuildEntry -and $oldBuildEntry.LinkType -ne "Junction") { $oldBuild } else { $newBuild }
-Assert-DirectoryHas $sourceToCheck ".git"
-Assert-DirectoryHas $sourceToCheck "make.bat"
-Assert-DirectoryHas $buildToCheck "CMakeCache.txt"
-Assert-DirectoryHas $buildToCheck "Blender.sln"
-Assert-DirectoryHas $buildToCheck "bin\Release\blender.exe"
-
-# Validate the configuration belongs to this exact source checkout and build.
-$cacheHome = Get-Content -LiteralPath (Join-Path $buildToCheck "CMakeCache.txt") |
-    Where-Object { $_ -match '^CMAKE_HOME_DIRECTORY:INTERNAL=' } | Select-Object -First 1
-$expectedHome = ($oldSource -replace '\\', '/').TrimEnd('/')
-if (-not $cacheHome) { throw "CMAKE_HOME_DIRECTORY missing from CMakeCache.txt." }
-$actualHome = ((($cacheHome -split '=', 2)[1]) -replace '\\', '/').TrimEnd('/')
-if ($actualHome -ine $expectedHome) {
-    throw ("Build cache points at a different source checkout: " + $actualHome)
+# Make sure that this build belongs to this exact fork and not another project.
+$cacheFile = Join-Path $buildToValidate "CMakeCache.txt"
+$home = Get-Content -LiteralPath $cacheFile |
+    Where-Object { $_ -match '^CMAKE_HOME_DIRECTORY:INTERNAL=' } |
+    Select-Object -First 1
+if (-not $home) { throw "CMake cache has no source identification. Nothing moved." }
+$cachedSource = (($home -split '=',2)[1] -replace '\\','/').TrimEnd('/')
+$expectedSources = @($oldSource,$newSource) | ForEach-Object { ($_ -replace '\\','/').TrimEnd('/') }
+if ($cachedSource -notin $expectedSources) {
+    throw ("CMake build belongs to another source: " + $cachedSource)
 }
 
-if (-not (Get-Entry $parent)) { New-Item -ItemType Directory -Path $parent -ErrorAction Stop | Out-Null }
-if (-not (Test-Path -LiteralPath $parent -PathType Container)) { throw ("Not a directory: " + $parent) }
+if (-not (Entry $parent)) {
+    New-Item -ItemType Directory -Path $parent -ErrorAction Stop | Out-Null
+}
+if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
+    throw ("Not a directory: " + $parent)
+}
 
-# Source first; keep original location accessible immediately via its junction.
-Move-And-Link $oldSource $newSource ".git"
-Move-And-Link $oldBuild $newBuild "CMakeCache.txt"
+# Same NTFS drive: this moves directory records, not copies multi-GB content.
+# It can resume when one move succeeded and the other didn't.
+Move-If-Needed $oldBuild $newBuild
+Move-If-Needed $oldSource $newSource
 
-Write-Host "=== Validating Git, CMake and Blender executable ==="
-Assert-ExpectedJunction $oldSource $newSource
-Assert-ExpectedJunction $oldBuild $newBuild
-
-& git -C $oldSource rev-parse --is-inside-work-tree
-if ($LASTEXITCODE -ne 0) { throw "Git could not open the old-path junction." }
+Require-File $newSource ".git"
+Require-File $newBuild "bin\Release\blender.exe"
 & git -C $newSource rev-parse --is-inside-work-tree
-if ($LASTEXITCODE -ne 0) { throw "Git could not open the organized source folder." }
+if ($LASTEXITCODE -ne 0) { throw "Git checkout did not survive the move." }
 
-Assert-DirectoryHas $newBuild "bin\Release\blender.exe"
+# CMake stores absolute paths in its configuration. Clear only generated
+# configuration files, not libraries, objects, executables or source code.
+$cache = Join-Path $newBuild "CMakeCache.txt"
+$cmakeFiles = Join-Path $newBuild "CMakeFiles"
+$solution = Join-Path $newBuild "Blender.sln"
+if (Test-Path -LiteralPath $cache) { Remove-Item -LiteralPath $cache -Force }
+if (Test-Path -LiteralPath $cmakeFiles) { Remove-Item -LiteralPath $cmakeFiles -Recurse -Force }
+if (Test-Path -LiteralPath $solution) { Remove-Item -LiteralPath $solution -Force }
+
+if ((Entry $oldSource) -or (Entry $oldBuild)) {
+    throw "Unexpected old-path entry still exists. No cleanup was attempted."
+}
+
 Write-Host "ORGANIZATION SUCCESS"
 Write-Host ("Source: " + $newSource)
 Write-Host ("Build: " + $newBuild)
-Write-Host ("Executable: " + (Join-Path $newBuild "bin\Release\blender.exe"))
-Write-Host "Keep both compatibility junctions in D:\; existing CMake incremental builds reference them."
-Write-Host "The original source and build were moved, not copied or rebuilt."
+Write-Host ("Existing Blender executable: " + (Join-Path $newBuild "bin\Release\blender.exe"))
+Write-Host "Old top-level folders: absent. No junctions created."
+Write-Host "IMPORTANT: CMake configuration will be regenerated on the next build."
+Write-Host "This may trigger significant recompilation because both paths changed."
