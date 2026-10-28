@@ -104,3 +104,15 @@
 - ユーザーが上記 `blender.exe` を起動し、起動成功を報告した。
 - 現時点ではBlender本体は初回ビルド・起動確認済みで、DesignDoll Animation Exporterなどの独自アドオンはまだBlenderCustomに統合していない。
 - フォルダ整理希望あり：`D:\Blender\BlenderCustom` と `D:\Blender\Build` 等にまとめたい。ただし元の `D:\BlenderCustom` と `D:\build_windows_x64_vc17_Release` を単純移動するとCMakeの絶対パスが壊れるため、作業前に安全な移行方法を選ぶ。ユーザーの許可なくフォルダ移動しない。
+
+## フォルダ整理手順（2026-10-28 追加・PCでの実行は未検証）
+- 移行前に改造版Blenderを閉じる（初回ビルド・起動確認済み）。
+- GitHubに追加した `custom_tools/organize_folders.ps1` が、同一NTFSボリューム上で2つの既存フォルダを移動する。
+- 物理的な保存先は `D:\Blender\BlenderCustom`（ソース）と `D:\Blender\Build`（既存ビルド）。コピーやライブラリの再取得はしない。
+- CMakeが旧パスを絶対参照するため、`D:\BlenderCustom` と `D:\build_windows_x64_vc17_Release` はNTFSジャンクション（互換リンク）として残す。これらのリンクを勝手に削除しない。
+- 同名宛先が既に存在すれば上書きせず停止。CMakeCacheが旧ソースに属するか検証。途中中断後の再実行にも対応。
+- 移行前コマンド: `git -C "D:\BlenderCustom" pull --ff-only origin main`、続けて `powershell -NoProfile -ExecutionPolicy Bypass -File "D:\BlenderCustom\custom_tools\organize_folders.ps1"`。
+- 移行後のGit操作: `git -C "D:\Blender\BlenderCustom" pull --ff-only origin main`。
+- 移行後のビルド: `powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Blender\BlenderCustom\custom_tools\build_blender.ps1"`。ビルドスクリプトは内部で旧パスのジャンクション経由でmake.batを呼ぶ。
+- 移行後の実行ファイル: `D:\Blender\Build\bin\Release\blender.exe`。
+- **ユーザーのPCでの移行実行結果は未確認**。成功を示すPowerShell出力を確認するまでは移行済みと断定しない。
