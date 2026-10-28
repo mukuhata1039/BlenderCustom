@@ -24,7 +24,7 @@ function Invoke-BlenderPython([string]$name, [string]$code) {
     $scriptPath = Join-Path $tempDir ($name + ".py")
     $stdoutPath = Join-Path $tempDir ($name + ".out")
     $stderrPath = Join-Path $tempDir ($name + ".err")
-    [System.IO.File]::WriteAllText($scriptPath, $code, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText($scriptPath, $code, ([System.Text.UTF8Encoding]::new($false)))
     $procArgs = @{
         FilePath = $exe
         ArgumentList = @("--background", "--factory-startup", "--python", ('"' + $scriptPath + '"'))
