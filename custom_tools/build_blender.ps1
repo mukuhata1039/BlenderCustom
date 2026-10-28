@@ -22,6 +22,16 @@ $vswhere = Join-Path ([Environment]::GetFolderPath("ProgramFilesX86")) "Microsof
 if (-not (Test-Path $vswhere)) { throw "Visual Studio Installer was not found." }
 $vsPath = (& $vswhere -latest -products * -version "[17.0,18.0)" -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" -property installationPath | Select-Object -First 1)
 if (-not $vsPath) { throw "Visual Studio 2022 with MSVC C++ tools was not found." }
+# Verify the actual VS product patch version before any multi-gigabyte downloads.
+# vswhere installationVersion (e.g. 17.14.36408.4) is NOT the patch-level product version.
+$vsJson = & $vswhere -latest -products * -version "[17.0,18.0)" -requires "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" -format json -utf8 | ConvertFrom-Json
+$productVersion = @($vsJson)[0].catalog.productDisplayVersion
+if (-not $productVersion) { throw "Could not determine Visual Studio product version. Build not started." }
+try { $parsedProductVersion = [version]$productVersion } catch { throw ("Unrecognized Visual Studio product version: " + $productVersion) }
+Write-Host ("Visual Studio product version: " + $productVersion)
+if ($parsedProductVersion -lt [version]"17.14.14") {
+    throw ("VS2022 Build Tools " + $productVersion + " is unsupported. Update it to 17.14.14 or newer before building. The downloaded libraries remain cached.")
+}
 $cmakeExe = Join-Path $vsPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 if (-not (Test-Path $cmakeExe)) { throw "Bundled Visual Studio CMake is missing: $cmakeExe" }
 $env:PATH = ((Split-Path $cmakeExe -Parent) + ";" + $env:PATH)
