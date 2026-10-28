@@ -59,3 +59,18 @@
 - `git pull --ff-only` がローカル変更や競合で失敗したら、ユーザーの変更を勝手に破棄せず、状態を確認して対処する。
 - Blender 公式リポジトリのアップデートは、`upstream` を登録しただけでは自動では反映されない。
 - 本体ビルドやアドオン動作を、実際に検証するまでは「検証済み」と表現しない。
+
+## ビルド手順（2026-10-28 追加・実機ビルドは未検証）
+- VS2022 Build Tools、MSVC、Windows SDK、Visual Studio付属CMakeの存在確認が完了。
+- 準備確認スクリプト：`custom_tools/prepare_build_environment.ps1`。
+- 依存ライブラリ取得と独立ビルド：`custom_tools/build_blender.ps1`。
+- ユーザーは、アシスタントがGitHubに反映した後、次をPowerShellで実行する。
+  ```powershell
+  git -C "D:\BlenderCustom" pull --ff-only origin main
+  powershell -NoProfile -ExecutionPolicy Bypass -File "D:\BlenderCustom\custom_tools\build_blender.ps1"
+  ```
+- ライブラリだけ取得するときは、同じスクリプトに `-LibrariesOnly` を追加。
+- `make update` はソース側の `upstream/main` を更新する可能性があるため、このスクリプトは使わず、Gitのサブモジュールから固定バージョンのWindows依存ライブラリを取得する。
+- 本体のLFSは公式upstreamから取得し、既存ソースコードの編集・削除はしない。
+- ビルド先は通常 `D:\build_windows_x64_vc17_Release\bin\Release\blender.exe`。現在の通常版Blenderは上書きしない。
+- スクリプトをGitHubに追加しただけではビルド成功は未確認。ユーザーの実行結果を受けて対処する。
