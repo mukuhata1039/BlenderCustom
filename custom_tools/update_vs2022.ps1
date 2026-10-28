@@ -26,8 +26,13 @@ if ($process.ExitCode -eq 3010) {
     throw ("Visual Studio Installer exited with code " + $process.ExitCode)
 }
 
-$vs = & $vswhere -latest -products * -version "[17.0,18.0)" -format json -utf8 | ConvertFrom-Json
-$versionText = @($vs)[0].catalog.productDisplayVersion
+# Avoid JSON output in Windows PowerShell 5.1: localized text may be corrupted by pipeline encoding.
+# installationName uses an ASCII-only form, for example "VisualStudio/17.14.43+37824.6".
+$installationName = (& $vswhere -latest -products * -version "[17.0,18.0)" -property installationName | Select-Object -First 1)
+if ($installationName -notmatch "^VisualStudio/(?<ver>\d+\.\d+\.\d+)\+") {
+    throw ("Unrecognized Visual Studio installation name: " + $installationName)
+}
+$versionText = $Matches["ver"]
 Write-Host ("Detected VS2022 product version: " + $versionText)
 
 if (-not $versionText) {
