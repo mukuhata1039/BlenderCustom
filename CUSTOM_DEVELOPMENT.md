@@ -119,3 +119,12 @@
 - **移行自体はまだユーザーPCで未実施／未検証。** 移行を実行したと報告されるまでは成功とは断定しない。
 
 - 2026-10-28 初回の `organize_folders.ps1` 実行は `変数 HOME は読み取り専用` で、**フォルダ移動前に**停止。原因は `$home` 変数名がPowerShell組み込みの `$HOME` と競合したため。`$cmakeHomeLine` に変更し GitHub commit `ec6fce624e19daf401b7bcc961173f75429aa723` で修正。移行はまだ実行成功していない。
+
+## フォルダ整理完了（2026-10-28 ユーザー実機確認）
+- ユーザーが `custom_tools/organize_folders.ps1` 実行、`ORGANIZATION SUCCESS` を報告。
+- 実体ソースは `D:\Blender\BlenderCustom`、ビルド成果物は `D:\Blender\Build` に移動済み。
+- 出力は `Old top-level folders: absent. No junctions created.`、Gitチェック `true`。
+- Blender実行ファイルは `D:\Blender\Build\bin\Release\blender.exe` に存在。**移動後の起動可否は未確認**（移動前は起動確認済み）。
+- 次回のソース更新は `git -C "D:\Blender\BlenderCustom" pull --ff-only origin main`。
+- 次回ビルドは `powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Blender\BlenderCustom\custom_tools\build_blender.ps1"`。CMakeキャッシュ削除済みなので再設定と再コンパイルが発生する可能性あり。
+- **旧パス `D:\BlenderCustom` 及び `D:\build_windows_x64_vc17_Release` は現在存在しない**。以降、操作案内では使わない。
