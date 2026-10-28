@@ -11,8 +11,12 @@ if (-not (Test-Path $vswhere)) { throw "Visual Studio installer (vswhere.exe) no
 $vsArgs = @("-latest", "-products", "*", "-version", "[17.0,18.0)")
 $vsPath = (& $vswhere @vsArgs -property installationPath | Select-Object -First 1)
 $vsVersion = (& $vswhere @vsArgs -property installationVersion | Select-Object -First 1)
-$vsInstances = & $vswhere @vsArgs -format json -utf8 | ConvertFrom-Json
-$vsDisplayVersion = @($vsInstances)[0].catalog.productDisplayVersion
+# Use the ASCII-only installationName to avoid Windows PowerShell 5.1 JSON encoding issues.
+$installationName = (& $vswhere @vsArgs -property installationName | Select-Object -First 1)
+if ($installationName -notmatch "^VisualStudio/(?<ver>\d+\.\d+\.\d+)\+") {
+    throw ("Unrecognized Visual Studio installation name: " + $installationName)
+}
+$vsDisplayVersion = $Matches["ver"]
 if (-not $vsPath) { throw "Visual Studio 2022 not found." }
 Write-Host ("Visual Studio 2022: " + $vsPath)
 Write-Host ("Visual Studio installation version: " + $vsVersion)
